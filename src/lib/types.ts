@@ -1,0 +1,97 @@
+export interface Country {
+  name: string;
+  iso3: string;
+  iso2?: string;
+}
+
+export interface Indicator {
+  code: string;
+  name: string;
+  unit: string;
+}
+
+export interface DataPoint {
+  country: string;
+  countryCode: string;
+  indicator: string;
+  indicatorCode: string;
+  year: number;
+  value: number | null;
+}
+
+export interface QueryIntent {
+  countries: Country[];
+  indicator: Indicator | null;
+  startYear: number;
+  endYear: number;
+  queryType: 'single_country_trend' | 'cross_country_comparison' | 'regional_aggregate' | 'snapshot';
+  isAmbiguous: boolean;
+  clarificationNeeded?: string;
+  originalQuery: string;
+}
+
+export interface EconomicData {
+  data: DataPoint[];
+  indicator: Indicator;
+  countries: Country[];
+  startYear: number;
+  endYear: number;
+  source: string;
+  fetchedAt: Date;
+}
+
+export interface NarrativeResponse {
+  summary: string;
+  trendDescription: string;
+  peerComparison?: string;
+  historicalContext?: string;
+  notableFlags: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: Date;
+  data?: EconomicData;
+  narrative?: NarrativeResponse;
+  error?: string;
+  isLoading?: boolean;
+}
+
+export interface QuickAction {
+  label: string;
+  action: string;
+  icon?: string;
+}
+
+export interface WorldBankResponse {
+  page: number;
+  pages: number;
+  per_page: number;
+  total: number;
+}
+
+export interface WorldBankDataPoint {
+  indicator: {
+    id: string;
+    value: string;
+  };
+  country: {
+    id: string;
+    value: string;
+  };
+  countryiso3code: string;
+  date: string;
+  value: number | null;
+  decimal: number;
+}
+
+export type ChartType = 'line' | 'bar' | 'area';
+
+export interface ChartConfig {
+  type: ChartType;
+  title: string;
+  xAxisLabel: string;
+  yAxisLabel: string;
+}
