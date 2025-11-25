@@ -10,6 +10,8 @@ import { REGIONAL_CODES } from '@/lib/constants';
 interface ConversationContext {
   countries: Country[];
   indicators: Indicator[];
+  startYear: number | null;
+  endYear: number | null;
 }
 
 export function useChat() {
@@ -18,7 +20,12 @@ export function useChat() {
   const [lastData, setLastData] = useState<EconomicData | null>(null);
 
   // Maintain conversation context
-  const contextRef = useRef<ConversationContext>({ countries: [], indicators: [] });
+  const contextRef = useRef<ConversationContext>({
+    countries: [],
+    indicators: [],
+    startYear: null,
+    endYear: null,
+  });
 
   const addMessage = useCallback((message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
     const newMessage: ChatMessage = {
@@ -49,12 +56,17 @@ export function useChat() {
       // Interpret the query with conversation context
       const intent = interpretQuery(query, contextRef.current);
 
-      // Update context with newly found countries/indicators
+      // Update context with newly found countries/indicators/time period
       if (intent.countries.length > 0) {
         contextRef.current.countries = intent.countries;
       }
       if (intent.indicators.length > 0) {
         contextRef.current.indicators = intent.indicators;
+      }
+      // Update time period context (only if explicitly specified in query, not default)
+      if (intent.startYear !== new Date().getFullYear() - 10 || intent.endYear !== new Date().getFullYear()) {
+        contextRef.current.startYear = intent.startYear;
+        contextRef.current.endYear = intent.endYear;
       }
 
       // Handle ambiguous queries
@@ -238,7 +250,7 @@ export function useChat() {
   const clearMessages = useCallback(() => {
     setMessages([]);
     setLastData(null);
-    contextRef.current = { countries: [], indicators: [] };
+    contextRef.current = { countries: [], indicators: [], startYear: null, endYear: null };
   }, []);
 
   return {

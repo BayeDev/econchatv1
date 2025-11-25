@@ -2,8 +2,16 @@ import { QueryIntent, Country, Indicator } from './types';
 import { COUNTRIES, REGIONAL_CODES, INDICATOR_SYNONYMS, INDICATORS, MULTI_INDICATOR_QUERIES } from './constants';
 
 const currentYear = new Date().getFullYear();
+const defaultStartYear = currentYear - 10;
 
-export function interpretQuery(query: string, context?: { countries?: Country[], indicators?: Indicator[] }): QueryIntent {
+interface QueryContext {
+  countries?: Country[];
+  indicators?: Indicator[];
+  startYear?: number | null;
+  endYear?: number | null;
+}
+
+export function interpretQuery(query: string, context?: QueryContext): QueryIntent {
   const normalizedQuery = query.toLowerCase().trim();
 
   // Extract countries (use context if none found in current query)
@@ -13,16 +21,25 @@ export function interpretQuery(query: string, context?: { countries?: Country[],
   }
 
   // Extract indicators (multiple supported)
-  const indicators = extractMultipleIndicators(normalizedQuery);
+  let indicators = extractMultipleIndicators(normalizedQuery);
 
-  // Use first indicator for backward compatibility, or use context
-  let indicator = indicators.length > 0 ? indicators[0] : null;
-  if (!indicator && context?.indicators && context.indicators.length > 0) {
-    indicator = context.indicators[0];
+  // If no indicators found in query, use ALL indicators from context
+  if (indicators.length === 0 && context?.indicators && context.indicators.length > 0) {
+    indicators = context.indicators;
   }
 
-  // Extract time period
-  const { startYear, endYear } = extractTimePeriod(normalizedQuery);
+  // Use first indicator for backward compatibility
+  const indicator = indicators.length > 0 ? indicators[0] : null;
+
+  // Extract time period - check if query has explicit time specification
+  const hasExplicitTimePeriod = queryHasTimePeriod(normalizedQuery);
+  let { startYear, endYear } = extractTimePeriod(normalizedQuery);
+
+  // If no explicit time period in query and context has time period, use context
+  if (!hasExplicitTimePeriod && context?.startYear && context?.endYear) {
+    startYear = context.startYear;
+    endYear = context.endYear;
+  }
 
   // Determine query type
   const queryType = determineQueryType(countries, normalizedQuery);
@@ -33,7 +50,7 @@ export function interpretQuery(query: string, context?: { countries?: Country[],
   return {
     countries,
     indicator,
-    indicators: indicators.length > 0 ? indicators : (indicator ? [indicator] : []),
+    indicators,
     startYear,
     endYear,
     queryType,
@@ -41,6 +58,21 @@ export function interpretQuery(query: string, context?: { countries?: Country[],
     clarificationNeeded,
     originalQuery: query,
   };
+}
+
+// Helper to check if query contains explicit time period specification
+function queryHasTimePeriod(query: string): boolean {
+  const patterns = [
+    /\d{4}\s*[-–to]+\s*\d{4}/i,        // year range
+    /since\s+\d{4}/i,                   // since YYYY
+    /\d+\s*decades?/i,                  // N decades
+    /last\s+\d+\s+years?/i,             // last N years
+    /past\s+\d+\s+years?/i,             // past N years
+    /\b(19\d{2}|20\d{2})\b/,            // single year
+    /recent|lately/i,                    // relative terms
+  ];
+
+  return patterns.some(pattern => pattern.test(query));
 }
 
 function extractCountries(query: string): Country[] {
