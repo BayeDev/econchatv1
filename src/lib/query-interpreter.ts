@@ -179,6 +179,16 @@ function extractTimePeriod(query: string): { startYear: number; endYear: number 
     };
   }
 
+  // Look for "N decades" or "past N decades" or "last N decades"
+  const decadesMatch = query.match(/(?:past|last|over\s+the\s+(?:past|last))?\s*(\d+)\s*decades?/i);
+  if (decadesMatch) {
+    const decades = parseInt(decadesMatch[1]);
+    return {
+      startYear: currentYear - (decades * 10),
+      endYear: currentYear,
+    };
+  }
+
   // Look for "last N years"
   const lastYearsMatch = query.match(/last\s+(\d+)\s+years?/i);
   if (lastYearsMatch) {
