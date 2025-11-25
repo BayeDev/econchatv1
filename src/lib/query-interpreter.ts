@@ -35,12 +35,23 @@ export function interpretQuery(query: string): QueryIntent {
 
 function extractCountries(query: string): Country[] {
   const foundCountries: Country[] = [];
-  const queryWords = query.toLowerCase();
+  const queryLower = query.toLowerCase();
+  const matchedCodes = new Set<string>();
+
+  // Helper function to check if a name appears as a whole word/phrase in the query
+  const matchesWholeWord = (name: string): boolean => {
+    // Create a regex that matches the name as a whole word
+    // Handle possessives (nigeria's), punctuation, and word boundaries
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|[^a-z])${escaped}('s)?([^a-z]|$)`, 'i');
+    return regex.test(queryLower);
+  };
 
   // First check for regional aggregates
   for (const [name, code] of Object.entries(REGIONAL_CODES)) {
-    if (queryWords.includes(name)) {
+    if (matchesWholeWord(name) && !matchedCodes.has(code)) {
       foundCountries.push({ name: formatName(name), iso3: code });
+      matchedCodes.add(code);
     }
   }
 
@@ -49,9 +60,10 @@ function extractCountries(query: string): Country[] {
   const sortedCountries = Object.entries(COUNTRIES).sort((a, b) => b[0].length - a[0].length);
 
   for (const [name, code] of sortedCountries) {
-    // Check if country name appears in query and hasn't been matched by regional aggregate
-    if (queryWords.includes(name) && !foundCountries.some(c => c.iso3 === code)) {
+    // Check if country name appears as whole word and hasn't been matched already
+    if (matchesWholeWord(name) && !matchedCodes.has(code)) {
       foundCountries.push({ name: formatName(name), iso3: code });
+      matchedCodes.add(code);
     }
   }
 
