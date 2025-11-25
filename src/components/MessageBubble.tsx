@@ -61,8 +61,21 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             </div>
           </div>
 
-          {/* Data visualization */}
-          {message.data && message.narrative && (
+          {/* Data visualization - multiple indicators */}
+          {message.multipleData && message.multipleData.length > 1 && message.multipleNarratives && (
+            <div className="mt-4 space-y-4">
+              {message.multipleData.map((data, index) => (
+                <DataVisualization
+                  key={data.indicator.code}
+                  data={data}
+                  narrative={message.multipleNarratives![index]}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Data visualization - single indicator */}
+          {message.data && message.narrative && (!message.multipleData || message.multipleData.length <= 1) && (
             <div className="mt-4">
               <DataVisualization data={message.data} narrative={message.narrative} />
             </div>

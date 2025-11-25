@@ -22,6 +22,7 @@ export interface DataPoint {
 export interface QueryIntent {
   countries: Country[];
   indicator: Indicator | null;
+  indicators: Indicator[]; // Support for multiple indicators
   startYear: number;
   endYear: number;
   queryType: 'single_country_trend' | 'cross_country_comparison' | 'regional_aggregate' | 'snapshot';
@@ -54,7 +55,9 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   data?: EconomicData;
+  multipleData?: EconomicData[]; // Support for multiple indicators
   narrative?: NarrativeResponse;
+  multipleNarratives?: NarrativeResponse[]; // Support for multiple narratives
   error?: string;
   isLoading?: boolean;
 }

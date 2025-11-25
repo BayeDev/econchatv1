@@ -167,6 +167,11 @@ export const INDICATOR_SYNONYMS: Record<string, string> = {
   'gdp per person': 'NY.GDP.PCAP.KD',
   'real gdp': 'NY.GDP.MKTP.KD',
   'nominal gdp': 'NY.GDP.MKTP.CD',
+  'structural transformation': 'NY.GDP.MKTP.KD.ZG',
+  'economic transformation': 'NY.GDP.MKTP.KD.ZG',
+  'economic development': 'NY.GDP.MKTP.KD.ZG',
+  'economic performance': 'NY.GDP.MKTP.KD.ZG',
+  'economy': 'NY.GDP.MKTP.KD.ZG',
 
   // Prices
   'inflation': 'FP.CPI.TOTL.ZG',
@@ -181,6 +186,8 @@ export const INDICATOR_SYNONYMS: Record<string, string> = {
   'jobless': 'SL.UEM.TOTL.ZS',
   'unemployment rate': 'SL.UEM.TOTL.ZS',
   'joblessness': 'SL.UEM.TOTL.ZS',
+  'jobs': 'SL.UEM.TOTL.ZS',
+  'employment': 'SL.UEM.TOTL.ZS',
 
   // External
   'current account': 'BN.CAB.XOKA.GD.ZS',
@@ -214,6 +221,15 @@ export const INDICATOR_SYNONYMS: Record<string, string> = {
   'gini': 'SI.POV.GINI',
   'gini index': 'SI.POV.GINI',
   'gini coefficient': 'SI.POV.GINI',
+};
+
+// Multi-indicator queries - maps concept to multiple indicators
+export const MULTI_INDICATOR_QUERIES: Record<string, string[]> = {
+  'structural transformation': ['NY.GDP.MKTP.KD.ZG', 'FP.CPI.TOTL.ZG', 'SL.UEM.TOTL.ZS'],
+  'economic overview': ['NY.GDP.MKTP.KD.ZG', 'FP.CPI.TOTL.ZG', 'SL.UEM.TOTL.ZS'],
+  'macroeconomic': ['NY.GDP.MKTP.KD.ZG', 'FP.CPI.TOTL.ZG', 'SL.UEM.TOTL.ZS'],
+  'economic snapshot': ['NY.GDP.MKTP.KD.ZG', 'FP.CPI.TOTL.ZG', 'SL.UEM.TOTL.ZS'],
+  'economic indicators': ['NY.GDP.MKTP.KD.ZG', 'FP.CPI.TOTL.ZG', 'SL.UEM.TOTL.ZS'],
 };
 
 export const INDICATORS: Record<string, Indicator> = {

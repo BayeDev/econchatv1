@@ -1,16 +1,24 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { ChatMessage, EconomicData, QueryIntent } from '@/lib/types';
+import { useState, useCallback, useRef } from 'react';
+import { ChatMessage, EconomicData, Country, Indicator } from '@/lib/types';
 import { interpretQuery, getSimilarCountries, getSimilarIndicators } from '@/lib/query-interpreter';
 import { fetchWorldBankData, fetchRegionalAverage, getCountryRegion } from '@/lib/api/worldbank';
 import { generateNarrative } from '@/lib/narrative';
 import { REGIONAL_CODES } from '@/lib/constants';
 
+interface ConversationContext {
+  countries: Country[];
+  indicators: Indicator[];
+}
+
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastData, setLastData] = useState<EconomicData | null>(null);
+
+  // Maintain conversation context
+  const contextRef = useRef<ConversationContext>({ countries: [], indicators: [] });
 
   const addMessage = useCallback((message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
     const newMessage: ChatMessage = {
@@ -38,8 +46,16 @@ export function useChat() {
     setIsLoading(true);
 
     try {
-      // Interpret the query
-      const intent = interpretQuery(query);
+      // Interpret the query with conversation context
+      const intent = interpretQuery(query, contextRef.current);
+
+      // Update context with newly found countries/indicators
+      if (intent.countries.length > 0) {
+        contextRef.current.countries = intent.countries;
+      }
+      if (intent.indicators.length > 0) {
+        contextRef.current.indicators = intent.indicators;
+      }
 
       // Handle ambiguous queries
       if (intent.isAmbiguous) {
@@ -75,56 +91,127 @@ export function useChat() {
         return;
       }
 
-      // Fetch data
       const countryCodes = intent.countries.map(c => c.iso3);
-      const indicatorCode = intent.indicator!.code;
 
-      const data = await fetchWorldBankData(
-        countryCodes,
-        indicatorCode,
-        intent.startYear,
-        intent.endYear
-      );
+      // Handle multiple indicators
+      if (intent.indicators.length > 1) {
+        const allData: EconomicData[] = [];
+        const allNarratives: { summary: string; trendDescription: string; peerComparison?: string; historicalContext?: string; notableFlags: string[] }[] = [];
 
-      // Try to get regional average for comparison
-      let regionalData;
-      if (intent.countries.length === 1 && !Object.values(REGIONAL_CODES).includes(countryCodes[0])) {
-        // Get the country's region
-        const regionCode = await getCountryRegion(countryCodes[0]);
-        if (regionCode) {
-          regionalData = await fetchRegionalAverage(
-            regionCode,
-            indicatorCode,
-            intent.startYear,
-            intent.endYear
-          );
+        // Fetch data for each indicator
+        for (const indicator of intent.indicators) {
+          try {
+            const data = await fetchWorldBankData(
+              countryCodes,
+              indicator.code,
+              intent.startYear,
+              intent.endYear
+            );
+
+            // Try to get regional average for comparison
+            let regionalData;
+            if (intent.countries.length === 1 && !Object.values(REGIONAL_CODES).includes(countryCodes[0])) {
+              const regionCode = await getCountryRegion(countryCodes[0]);
+              if (regionCode) {
+                regionalData = await fetchRegionalAverage(
+                  regionCode,
+                  indicator.code,
+                  intent.startYear,
+                  intent.endYear
+                );
+              }
+            }
+
+            const narrative = generateNarrative(data, regionalData);
+            allData.push(data);
+            allNarratives.push(narrative);
+          } catch (err) {
+            console.error(`Error fetching ${indicator.name}:`, err);
+            // Continue with other indicators even if one fails
+          }
         }
-      }
 
-      // Generate narrative
-      const narrative = generateNarrative(data, regionalData);
+        if (allData.length === 0) {
+          throw new Error('No data available for any of the requested indicators');
+        }
 
-      // Build response content
-      let content = narrative.summary;
-      if (narrative.trendDescription) {
-        content += ' ' + narrative.trendDescription;
-      }
-      if (narrative.peerComparison) {
-        content += ' ' + narrative.peerComparison;
-      }
-      if (narrative.historicalContext) {
-        content += ' ' + narrative.historicalContext;
-      }
+        // Build combined response content
+        const countryNames = intent.countries.map(c => c.name).join(', ');
+        let content = `Here's the economic data for ${countryNames} (${intent.startYear}-${intent.endYear}):\n\n`;
 
-      // Update message with data
-      updateMessage(loadingId, {
-        content,
-        data,
-        narrative,
-        isLoading: false,
-      });
+        for (let i = 0; i < allData.length; i++) {
+          const narrative = allNarratives[i];
+          content += `**${allData[i].indicator.name}**: ${narrative.summary}`;
+          if (narrative.trendDescription) {
+            content += ' ' + narrative.trendDescription;
+          }
+          if (narrative.peerComparison) {
+            content += ' ' + narrative.peerComparison;
+          }
+          content += '\n\n';
+        }
 
-      setLastData(data);
+        // Update message with first data set for visualization, but include all
+        updateMessage(loadingId, {
+          content: content.trim(),
+          data: allData[0],
+          multipleData: allData,
+          narrative: allNarratives[0],
+          multipleNarratives: allNarratives,
+          isLoading: false,
+        });
+
+        setLastData(allData[0]);
+      } else {
+        // Single indicator (original behavior)
+        const indicatorCode = intent.indicator!.code;
+
+        const data = await fetchWorldBankData(
+          countryCodes,
+          indicatorCode,
+          intent.startYear,
+          intent.endYear
+        );
+
+        // Try to get regional average for comparison
+        let regionalData;
+        if (intent.countries.length === 1 && !Object.values(REGIONAL_CODES).includes(countryCodes[0])) {
+          const regionCode = await getCountryRegion(countryCodes[0]);
+          if (regionCode) {
+            regionalData = await fetchRegionalAverage(
+              regionCode,
+              indicatorCode,
+              intent.startYear,
+              intent.endYear
+            );
+          }
+        }
+
+        // Generate narrative
+        const narrative = generateNarrative(data, regionalData);
+
+        // Build response content
+        let content = narrative.summary;
+        if (narrative.trendDescription) {
+          content += ' ' + narrative.trendDescription;
+        }
+        if (narrative.peerComparison) {
+          content += ' ' + narrative.peerComparison;
+        }
+        if (narrative.historicalContext) {
+          content += ' ' + narrative.historicalContext;
+        }
+
+        // Update message with data
+        updateMessage(loadingId, {
+          content,
+          data,
+          narrative,
+          isLoading: false,
+        });
+
+        setLastData(data);
+      }
     } catch (error) {
       console.error('Error processing query:', error);
 
@@ -151,6 +238,7 @@ export function useChat() {
   const clearMessages = useCallback(() => {
     setMessages([]);
     setLastData(null);
+    contextRef.current = { countries: [], indicators: [] };
   }, []);
 
   return {

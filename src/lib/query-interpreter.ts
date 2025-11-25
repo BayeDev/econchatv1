@@ -1,16 +1,25 @@
 import { QueryIntent, Country, Indicator } from './types';
-import { COUNTRIES, REGIONAL_CODES, INDICATOR_SYNONYMS, INDICATORS } from './constants';
+import { COUNTRIES, REGIONAL_CODES, INDICATOR_SYNONYMS, INDICATORS, MULTI_INDICATOR_QUERIES } from './constants';
 
 const currentYear = new Date().getFullYear();
 
-export function interpretQuery(query: string): QueryIntent {
+export function interpretQuery(query: string, context?: { countries?: Country[], indicators?: Indicator[] }): QueryIntent {
   const normalizedQuery = query.toLowerCase().trim();
 
-  // Extract countries
-  const countries = extractCountries(normalizedQuery);
+  // Extract countries (use context if none found in current query)
+  let countries = extractCountries(normalizedQuery);
+  if (countries.length === 0 && context?.countries && context.countries.length > 0) {
+    countries = context.countries;
+  }
 
-  // Extract indicator
-  const indicator = extractIndicator(normalizedQuery);
+  // Extract indicators (multiple supported)
+  const indicators = extractMultipleIndicators(normalizedQuery);
+
+  // Use first indicator for backward compatibility, or use context
+  let indicator = indicators.length > 0 ? indicators[0] : null;
+  if (!indicator && context?.indicators && context.indicators.length > 0) {
+    indicator = context.indicators[0];
+  }
 
   // Extract time period
   const { startYear, endYear } = extractTimePeriod(normalizedQuery);
@@ -24,6 +33,7 @@ export function interpretQuery(query: string): QueryIntent {
   return {
     countries,
     indicator,
+    indicators: indicators.length > 0 ? indicators : (indicator ? [indicator] : []),
     startYear,
     endYear,
     queryType,
@@ -89,6 +99,63 @@ function extractIndicator(query: string): Indicator | null {
   }
 
   return null;
+}
+
+function extractMultipleIndicators(query: string): Indicator[] {
+  const queryLower = query.toLowerCase();
+  const foundIndicators: Indicator[] = [];
+  const foundCodes = new Set<string>();
+
+  // First check for multi-indicator query concepts (e.g., "structural transformation")
+  for (const [concept, codes] of Object.entries(MULTI_INDICATOR_QUERIES)) {
+    if (queryLower.includes(concept)) {
+      for (const code of codes) {
+        if (!foundCodes.has(code) && INDICATORS[code]) {
+          foundIndicators.push(INDICATORS[code]);
+          foundCodes.add(code);
+        }
+      }
+      // If we found a multi-indicator concept, return those indicators
+      if (foundIndicators.length > 0) {
+        return foundIndicators;
+      }
+    }
+  }
+
+  // Sort by length descending to match longer phrases first
+  const sortedSynonyms = Object.entries(INDICATOR_SYNONYMS).sort((a, b) => b[0].length - a[0].length);
+
+  // Check for comma-separated or "and"-separated indicators
+  // Split query by commas and "and"
+  const parts = queryLower.split(/[,]|\band\b/).map(p => p.trim());
+
+  for (const part of parts) {
+    for (const [synonym, code] of sortedSynonyms) {
+      if (part.includes(synonym) && !foundCodes.has(code)) {
+        const indicator = INDICATORS[code];
+        if (indicator) {
+          foundIndicators.push(indicator);
+          foundCodes.add(code);
+        }
+        break; // Only match first indicator per part
+      }
+    }
+  }
+
+  // If no comma/and separated indicators, try to find any indicators in the whole query
+  if (foundIndicators.length === 0) {
+    for (const [synonym, code] of sortedSynonyms) {
+      if (queryLower.includes(synonym) && !foundCodes.has(code)) {
+        const indicator = INDICATORS[code];
+        if (indicator) {
+          foundIndicators.push(indicator);
+          foundCodes.add(code);
+        }
+      }
+    }
+  }
+
+  return foundIndicators;
 }
 
 function extractTimePeriod(query: string): { startYear: number; endYear: number } {
