@@ -29,6 +29,7 @@ export interface QueryIntent {
   isAmbiguous: boolean;
   clarificationNeeded?: string;
   originalQuery: string;
+  preferredFormat?: VisualizationFormat; // User's preferred visualization format
 }
 
 export interface EconomicData {
@@ -60,6 +61,7 @@ export interface ChatMessage {
   multipleNarratives?: NarrativeResponse[]; // Support for multiple narratives
   error?: string;
   isLoading?: boolean;
+  preferredFormat?: VisualizationFormat; // User's preferred visualization format
 }
 
 export interface QuickAction {
@@ -91,6 +93,8 @@ export interface WorldBankDataPoint {
 }
 
 export type ChartType = 'line' | 'bar' | 'area';
+
+export type VisualizationFormat = 'chart' | 'table' | 'csv' | 'png';
 
 export interface ChartConfig {
   type: ChartType;

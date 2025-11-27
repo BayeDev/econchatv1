@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { EconomicData, NarrativeResponse, DataPoint } from '@/lib/types';
+import { useState, useRef, useEffect } from 'react';
+import { EconomicData, NarrativeResponse, DataPoint, VisualizationFormat } from '@/lib/types';
 import DataChart from './DataChart';
 import DataTable from './DataTable';
 import { Download, Image, FileSpreadsheet, TrendingUp, TrendingDown, AlertTriangle, BarChart2, Table } from 'lucide-react';
@@ -9,11 +9,19 @@ import { Download, Image, FileSpreadsheet, TrendingUp, TrendingDown, AlertTriang
 interface DataVisualizationProps {
   data: EconomicData;
   narrative: NarrativeResponse;
+  preferredFormat?: VisualizationFormat;
 }
 
-export default function DataVisualization({ data, narrative }: DataVisualizationProps) {
-  const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
+export default function DataVisualization({ data, narrative, preferredFormat }: DataVisualizationProps) {
+  // Set initial tab based on preferredFormat (table/chart only, csv/png trigger exports)
+  const getInitialTab = (): 'chart' | 'table' => {
+    if (preferredFormat === 'table') return 'table';
+    return 'chart';
+  };
+
+  const [activeTab, setActiveTab] = useState<'chart' | 'table'>(getInitialTab());
   const chartRef = useRef<HTMLDivElement>(null);
+  const hasAutoExported = useRef(false);
 
   const exportCSV = () => {
     const headers = ['Country', 'Year', data.indicator.name, 'Unit'];
@@ -52,6 +60,29 @@ export default function DataVisualization({ data, narrative }: DataVisualization
       console.error('Failed to export PNG:', error);
     }
   };
+
+  // Auto-export for CSV/PNG formats when requested
+  useEffect(() => {
+    if (hasAutoExported.current) return;
+
+    if (preferredFormat === 'csv') {
+      // Small delay to ensure component is fully rendered
+      const timer = setTimeout(() => {
+        exportCSV();
+        hasAutoExported.current = true;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+
+    if (preferredFormat === 'png') {
+      // Longer delay for PNG to ensure chart is fully rendered
+      const timer = setTimeout(() => {
+        exportPNG();
+        hasAutoExported.current = true;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [preferredFormat]);
 
   return (
     <div className="card space-y-4">

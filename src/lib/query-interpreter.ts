@@ -1,4 +1,4 @@
-import { QueryIntent, Country, Indicator } from './types';
+import { QueryIntent, Country, Indicator, VisualizationFormat } from './types';
 import { COUNTRIES, REGIONAL_CODES, INDICATOR_SYNONYMS, INDICATORS, MULTI_INDICATOR_QUERIES } from './constants';
 
 const currentYear = new Date().getFullYear();
@@ -44,6 +44,9 @@ export function interpretQuery(query: string, context?: QueryContext): QueryInte
   // Determine query type
   const queryType = determineQueryType(countries, normalizedQuery);
 
+  // Extract preferred visualization format
+  const preferredFormat = extractPreferredFormat(normalizedQuery);
+
   // Check for ambiguity
   const { isAmbiguous, clarificationNeeded } = checkAmbiguity(countries, indicator, normalizedQuery);
 
@@ -57,6 +60,7 @@ export function interpretQuery(query: string, context?: QueryContext): QueryInte
     isAmbiguous,
     clarificationNeeded,
     originalQuery: query,
+    preferredFormat,
   };
 }
 
@@ -73,6 +77,61 @@ function queryHasTimePeriod(query: string): boolean {
   ];
 
   return patterns.some(pattern => pattern.test(query));
+}
+
+// Helper to detect user's preferred visualization format from query
+function extractPreferredFormat(query: string): VisualizationFormat | undefined {
+  const queryLower = query.toLowerCase();
+
+  // Table format patterns
+  const tablePatterns = [
+    /\btable\b/i,                        // "show table", "in table", "as table"
+    /\btabular\b/i,                      // "tabular format"
+    /\bspreadsheet\b/i,                  // "spreadsheet view"
+    /\blist\s+(?:the\s+)?(?:data|values|numbers)\b/i,  // "list the data"
+  ];
+
+  // CSV export patterns
+  const csvPatterns = [
+    /\bcsv\b/i,                          // "export csv", "as csv", "csv format"
+    /\bexport\s+(?:as\s+)?(?:a\s+)?spreadsheet\b/i,   // "export as spreadsheet"
+    /\bdownload\s+(?:as\s+)?(?:a\s+)?spreadsheet\b/i, // "download spreadsheet"
+  ];
+
+  // PNG/image export patterns
+  const pngPatterns = [
+    /\bpng\b/i,                          // "export png", "as png"
+    /\bimage\b/i,                        // "as image", "export image"
+    /\bpicture\b/i,                      // "as picture"
+    /\bscreenshot\b/i,                   // "screenshot"
+    /\bsave\s+(?:as\s+)?(?:an?\s+)?image\b/i,  // "save as image"
+  ];
+
+  // Chart/graph patterns (explicit request for chart)
+  const chartPatterns = [
+    /\bchart\b/i,                        // "show chart", "as chart"
+    /\bgraph\b/i,                        // "show graph", "as graph"
+    /\bplot\b/i,                         // "plot the data"
+    /\bvisualize\b/i,                    // "visualize"
+    /\btrend\s+line\b/i,                 // "trend line"
+  ];
+
+  // Check patterns in priority order (more specific first)
+  if (csvPatterns.some(pattern => pattern.test(queryLower))) {
+    return 'csv';
+  }
+  if (pngPatterns.some(pattern => pattern.test(queryLower))) {
+    return 'png';
+  }
+  if (tablePatterns.some(pattern => pattern.test(queryLower))) {
+    return 'table';
+  }
+  if (chartPatterns.some(pattern => pattern.test(queryLower))) {
+    return 'chart';
+  }
+
+  // No explicit format preference
+  return undefined;
 }
 
 function extractCountries(query: string): Country[] {

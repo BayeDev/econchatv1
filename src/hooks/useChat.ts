@@ -171,6 +171,7 @@ export function useChat() {
           narrative: allNarratives[0],
           multipleNarratives: allNarratives,
           isLoading: false,
+          preferredFormat: intent.preferredFormat,
         });
 
         setLastData(allData[0]);
@@ -220,6 +221,7 @@ export function useChat() {
           data,
           narrative,
           isLoading: false,
+          preferredFormat: intent.preferredFormat,
         });
 
         setLastData(data);

@@ -69,6 +69,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                   key={data.indicator.code}
                   data={data}
                   narrative={message.multipleNarratives![index]}
+                  preferredFormat={message.preferredFormat}
                 />
               ))}
             </div>
@@ -77,7 +78,11 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           {/* Data visualization - single indicator */}
           {message.data && message.narrative && (!message.multipleData || message.multipleData.length <= 1) && (
             <div className="mt-4">
-              <DataVisualization data={message.data} narrative={message.narrative} />
+              <DataVisualization
+                data={message.data}
+                narrative={message.narrative}
+                preferredFormat={message.preferredFormat}
+              />
             </div>
           )}
         </div>
