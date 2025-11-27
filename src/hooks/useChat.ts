@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
-import { ChatMessage, EconomicData, Country, Indicator } from '@/lib/types';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { ChatMessage, EconomicData, Country, Indicator, NarrativeResponse } from '@/lib/types';
 import { interpretQuery, getSimilarCountries, getSimilarIndicators } from '@/lib/query-interpreter';
 import { fetchWorldBankData, fetchRegionalAverage, getCountryRegion } from '@/lib/api/worldbank';
 import { generateNarrative } from '@/lib/narrative';
 import { REGIONAL_CODES } from '@/lib/constants';
+import * as apiClient from '@/lib/api-client';
 
 interface ConversationContext {
   countries: Country[];
@@ -14,10 +15,17 @@ interface ConversationContext {
   endYear: number | null;
 }
 
-export function useChat() {
+interface UseChatOptions {
+  useBackend?: boolean;  // Whether to use backend API (default: auto-detect)
+  sessionId?: string;    // Session ID for backend
+}
+
+export function useChat(options: UseChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastData, setLastData] = useState<EconomicData | null>(null);
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
+  const [sessionId, setSessionId] = useState<string | undefined>(options.sessionId);
 
   // Maintain conversation context
   const contextRef = useRef<ConversationContext>({
@@ -26,6 +34,26 @@ export function useChat() {
     startYear: null,
     endYear: null,
   });
+
+  // Check backend availability on mount
+  useEffect(() => {
+    if (options.useBackend === false) {
+      setBackendAvailable(false);
+      return;
+    }
+
+    apiClient.checkHealth().then(available => {
+      setBackendAvailable(available);
+      if (available && !sessionId) {
+        // Create a new session if backend is available
+        apiClient.createSession().then(session => {
+          setSessionId(session.id);
+        }).catch(() => {
+          // Silently fail - will use frontend-only mode
+        });
+      }
+    });
+  }, [options.useBackend, sessionId]);
 
   const addMessage = useCallback((message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
     const newMessage: ChatMessage = {
@@ -261,5 +289,8 @@ export function useChat() {
     lastData,
     processQuery,
     clearMessages,
+    // New properties for backend integration
+    backendAvailable,
+    sessionId,
   };
 }
